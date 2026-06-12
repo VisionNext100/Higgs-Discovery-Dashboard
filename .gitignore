@@ -1,0 +1,23 @@
+# Data & Big Files (Strictly Ignored)
+*.csv
+*.gz
+*.pkl
+*.h5
+*.model
+
+# Python & Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
+
+# Jupyter Notebook (If used for EDA)
+.ipynb_checkpoints/
+
+# IDE & OS specific
+.vscode/
+.idea/
+.DS_Store
