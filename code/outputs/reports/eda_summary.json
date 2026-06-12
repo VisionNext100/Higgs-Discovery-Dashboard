@@ -1,0 +1,33 @@
+{
+  "missing_rates": {
+    "DER_deltaeta_jet_jet": 0.7091,
+    "DER_mass_jet_jet": 0.7091,
+    "DER_prodeta_jet_jet": 0.7091,
+    "DER_lep_eta_centrality": 0.7091,
+    "PRI_jet_subleading_pt": 0.7091,
+    "PRI_jet_subleading_eta": 0.7091,
+    "PRI_jet_subleading_phi": 0.7091,
+    "PRI_jet_leading_pt": 0.4001,
+    "PRI_jet_leading_eta": 0.4001,
+    "PRI_jet_leading_phi": 0.4001,
+    "DER_mass_MMC": 0.1523
+  },
+  "top_label_corr": {
+    "DER_mass_transverse_met_lep": -0.3507,
+    "DER_deltaeta_jet_jet": 0.326,
+    "DER_mass_jet_jet": 0.3142,
+    "DER_lep_eta_centrality": 0.3059,
+    "DER_prodeta_jet_jet": -0.2931,
+    "DER_met_phi_centrality": 0.2719,
+    "PRI_tau_pt": 0.2362,
+    "DER_pt_h": 0.1949,
+    "DER_pt_ratio_lep_tau": -0.1936,
+    "DER_sum_pt": 0.1538
+  },
+  "pca": {
+    "pc1_evr": 0.22759316894336176,
+    "pc2_evr": 0.10175205182405625,
+    "pc3_evr": 0.08466218111968142,
+    "top3_cumulative": 0.41400740188709945
+  }
+}

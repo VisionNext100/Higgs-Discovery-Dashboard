@@ -1,0 +1,47 @@
+{
+  "noise_robustness": [
+    {
+      "noise": 0.0,
+      "acc_mean": 0.7856,
+      "acc_std": 0.0,
+      "auc_mean": 0.912,
+      "auc_std": 0.0,
+      "ams_mean": 3.5261,
+      "ams_std": 0.0
+    },
+    {
+      "noise": 0.05,
+      "acc_mean": 0.7798,
+      "acc_std": 0.0005,
+      "auc_mean": 0.9076,
+      "auc_std": 0.0004,
+      "ams_mean": 3.3581,
+      "ams_std": 0.0368
+    },
+    {
+      "noise": 0.1,
+      "acc_mean": 0.7654,
+      "acc_std": 0.0003,
+      "auc_mean": 0.8951,
+      "auc_std": 0.0006,
+      "ams_mean": 2.9857,
+      "ams_std": 0.0402
+    },
+    {
+      "noise": 0.2,
+      "acc_mean": 0.7308,
+      "acc_std": 0.0006,
+      "auc_mean": 0.8531,
+      "auc_std": 0.001,
+      "ams_mean": 2.0958,
+      "ams_std": 0.0226
+    }
+  ],
+  "auc_drop_at_20pct": 0.05893966640114556,
+  "seed_stability": {
+    "auc_mean": 0.9118861371520116,
+    "auc_std": 4.188851741842761e-05,
+    "ams_mean": 3.5536611921392316,
+    "ams_std": 0.017228153510283124
+  }
+}

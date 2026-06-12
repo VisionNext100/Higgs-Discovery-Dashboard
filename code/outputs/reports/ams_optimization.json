@@ -1,0 +1,7 @@
+{
+  "public_best_threshold": 0.84,
+  "public_best_ams": 3.5260602951103692,
+  "private_ams_at_public_threshold": 3.595854263492238,
+  "private_best_ams": 3.607422717437629,
+  "private_roc_auc": 0.9131487818900479
+}

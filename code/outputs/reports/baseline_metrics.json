@@ -1,0 +1,24 @@
+{
+  "dummy": {
+    "accuracy": 0.65975,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "roc_auc": 0.5,
+    "threshold": 0.5,
+    "ams": 0.0,
+    "best_threshold": 0.1,
+    "best_ams": 1.0790735172880885
+  },
+  "logreg": {
+    "accuracy": 0.7519,
+    "precision": 0.6678934518820828,
+    "recall": 0.5386921381337252,
+    "f1": 0.5963753497754929,
+    "roc_auc": 0.8148445613319008,
+    "threshold": 0.5,
+    "ams": 2.003220008959675,
+    "best_threshold": 0.44000000000000006,
+    "best_ams": 2.044118987840116
+  }
+}

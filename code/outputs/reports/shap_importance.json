@@ -1,0 +1,105 @@
+{
+  "global_importance": {
+    "DER_mass_MMC": 0.8567116260528564,
+    "DER_mass_transverse_met_lep": 0.523708701133728,
+    "DER_mass_vis": 0.373686820268631,
+    "PRI_tau_pt": 0.3354375958442688,
+    "DER_met_phi_centrality": 0.2182488590478897,
+    "DER_deltar_tau_lep": 0.18236412107944489,
+    "PRI_jet_leading_eta": 0.14458781480789185,
+    "PRI_lep_eta": 0.13589373230934143,
+    "DER_sum_pt": 0.09896573424339294,
+    "PRI_met": 0.09589947015047073,
+    "PRI_tau_eta": 0.09067051857709885,
+    "DER_lep_eta_centrality": 0.08857627958059311,
+    "DER_deltaeta_jet_jet": 0.08182953298091888,
+    "DER_pt_tot": 0.07964523881673813,
+    "DER_pt_ratio_lep_tau": 0.07859980314970016,
+    "DER_pt_h": 0.07709363102912903,
+    "DER_mass_jet_jet": 0.07090058922767639,
+    "PRI_met_sumet": 0.06805147230625153,
+    "PRI_jet_leading_pt": 0.054732367396354675,
+    "PRI_jet_num": 0.03751080110669136,
+    "PRI_lep_pt": 0.03498982638120651,
+    "PRI_jet_subleading_pt": 0.030217545107007027,
+    "PRI_jet_all_pt": 0.029633205384016037,
+    "DER_prodeta_jet_jet": 0.024662166833877563,
+    "PRI_jet_subleading_eta": 0.022554876282811165,
+    "PRI_jet_leading_phi": 0.016063937917351723,
+    "PRI_lep_phi": 0.015942970290780067,
+    "PRI_met_phi": 0.01567966863512993,
+    "PRI_tau_phi": 0.01512981578707695,
+    "PRI_jet_subleading_phi": 0.00787113793194294
+  },
+  "fp_drivers": [
+    [
+      "DER_mass_MMC",
+      1.0088090896606445
+    ],
+    [
+      "DER_mass_transverse_met_lep",
+      0.45940926671028137
+    ],
+    [
+      "PRI_tau_pt",
+      0.4238639175891876
+    ],
+    [
+      "DER_mass_vis",
+      0.28009238839149475
+    ],
+    [
+      "PRI_jet_leading_eta",
+      0.19416023790836334
+    ],
+    [
+      "DER_deltar_tau_lep",
+      0.1902039647102356
+    ],
+    [
+      "DER_met_phi_centrality",
+      0.17614181339740753
+    ],
+    [
+      "DER_pt_h",
+      0.14185723662376404
+    ]
+  ],
+  "fn_drivers": [
+    [
+      "DER_mass_MMC",
+      0.6494782567024231
+    ],
+    [
+      "DER_mass_transverse_met_lep",
+      0.43390512466430664
+    ],
+    [
+      "PRI_tau_pt",
+      0.28657403588294983
+    ],
+    [
+      "DER_mass_vis",
+      0.2623829245567322
+    ],
+    [
+      "DER_met_phi_centrality",
+      0.2258094996213913
+    ],
+    [
+      "PRI_jet_leading_eta",
+      0.16914093494415283
+    ],
+    [
+      "DER_deltar_tau_lep",
+      0.14609169960021973
+    ],
+    [
+      "PRI_lep_eta",
+      0.1325579583644867
+    ]
+  ],
+  "n_fp": 54,
+  "n_fn": 1028,
+  "threshold": 0.84
+}

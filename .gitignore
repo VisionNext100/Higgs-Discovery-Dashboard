@@ -4,6 +4,12 @@
 *.pkl
 *.h5
 *.model
+# ...but keep the small metric/result CSVs (they document the experiment results)
+!code/outputs/reports/*.csv
+
+# Trained models (regenerable via scripts; some files >100MB exceed GitHub limit)
+*.joblib
+code/outputs/models/
 
 # Python & Environments
 __pycache__/
@@ -17,7 +23,14 @@ env/
 # Jupyter Notebook (If used for EDA)
 .ipynb_checkpoints/
 
+# Streamlit
+.streamlit/secrets.toml
+
 # IDE & OS specific
 .vscode/
 .idea/
 .DS_Store
+Thumbs.db
+
+# Keep results (figures & metric reports) tracked for the repo:
+#   code/outputs/figures/  and  code/outputs/reports/  are intentionally NOT ignored.
