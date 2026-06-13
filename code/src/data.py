@@ -25,7 +25,6 @@ import pandas as pd
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 import config as C  # noqa: E402
 
-
 @dataclass
 class DataSplit:
     """一个数据子集：特征、标签、AMS 权重。"""

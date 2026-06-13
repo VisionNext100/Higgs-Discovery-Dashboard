@@ -71,8 +71,7 @@ python scripts/08_robustness.py            # 鲁棒性与稳定性
 3\. 启动交互式系统：
 ```bash
 streamlit run app/dashboard.py
-```
-当然，由于我已经部署好了 Streamlit Cloud，你也可以直接访问 [https://higgs-discovery-dashboard.streamlit.app](https://higgs-discovery-dashboard.streamlit.app) 查看效果。作为 collaborator，你最好先按照上述步骤配置好环境，便于协作。  
+```  
 
 ### 四、补充说明
 1\. 数据划分：采用官方 `KaggleSet`（训练 25 万 / public 10 万 / private 45 万），阈值在 public 上选定，private 仅用于最终评估一次，避免信息泄漏。  

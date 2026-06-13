@@ -58,7 +58,13 @@ st.markdown(
     """
     <style>
     .main { background-color: #0e1117; }
-    .stMetric { background: #1c2333; border-radius: 12px; padding: 14px; }
+    /* 指标卡片：白底深字，保证清晰可读 */
+    .stMetric { background: #ffffff; border: 1px solid #d8dee9;
+        border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+    .stMetric [data-testid="stMetricLabel"],
+    .stMetric [data-testid="stMetricLabel"] * { color: #44506b !important; }
+    .stMetric [data-testid="stMetricValue"] { color: #0e1117 !important; }
+    .stMetric [data-testid="stMetricDelta"] { color: #1c2333 !important; }
     h1, h2, h3 { color: #f0f3f9; }
     .signal-badge { background:#d62728; color:white; padding:6px 16px;
         border-radius:20px; font-weight:700; font-size:20px; }
@@ -92,7 +98,7 @@ def predict_proba_single(model, row: pd.Series) -> float:
 # 页面 1：项目介绍
 # ============================================================================
 def page_intro():
-    st.title("⚛️ Higgs Event Discovery Dashboard")
+    st.title("Higgs Event Discovery Dashboard")
     st.caption("基于机器学习的希格斯玻色子信号识别与可解释分析系统")
 
     col1, col2, col3, col4 = st.columns(4)
@@ -154,12 +160,12 @@ def page_intro():
 # 页面 2：Event Display
 # ============================================================================
 def page_event_display(pub: pd.DataFrame):
-    st.title("🎯 Event Display — 碰撞事件可视化")
+    st.title("Event Display — 碰撞事件可视化")
     st.caption("横向平面（transverse plane）示意图：箭头方向为方位角 φ，长度正比于横动量 pT")
 
     idx = ensure_event_index(len(pub))
     cols = st.columns([1, 1, 3])
-    if cols[0].button("🎲 随机抽取事件", use_container_width=True):
+    if cols[0].button("随机抽取事件", use_container_width=True):
         st.session_state.event_idx = int(np.random.default_rng().integers(0, len(pub)))
         idx = st.session_state.event_idx
     idx = cols[1].number_input("事件索引", 0, len(pub) - 1, idx, key="event_idx")
@@ -224,10 +230,10 @@ def page_event_display(pub: pd.DataFrame):
 # 页面 3：实时预测
 # ============================================================================
 def page_prediction(pub: pd.DataFrame, model):
-    st.title("🔮 实时预测")
+    st.title("实时预测")
     idx = ensure_event_index(len(pub))
     cols = st.columns([1, 1, 3])
-    if cols[0].button("🎲 随机事件", use_container_width=True):
+    if cols[0].button("随机事件", use_container_width=True):
         st.session_state.event_idx = int(np.random.default_rng().integers(0, len(pub)))
     idx = cols[1].number_input("事件索引", 0, len(pub) - 1, st.session_state.event_idx, key="event_idx")
 
@@ -281,7 +287,7 @@ def page_prediction(pub: pd.DataFrame, model):
 # 页面 4：SHAP 解释
 # ============================================================================
 def page_shap(pub: pd.DataFrame, model):
-    st.title("🧠 SHAP 可解释性")
+    st.title("SHAP 可解释性")
     st.caption("展示当前事件中，哪些特征把预测推向 Signal（红）或 Background（蓝）")
 
     from src.explain import tree_shap_values
@@ -318,7 +324,7 @@ def page_shap(pub: pd.DataFrame, model):
 # 页面 5：AMS 实验室
 # ============================================================================
 def page_ams_lab():
-    st.title("🔬 AMS 实验室")
+    st.title("AMS 实验室")
     st.caption("拖动决策阈值，实时观察 Precision / Recall / F1 / AMS 的变化")
 
     scan = L.load_ams_scan()
@@ -373,7 +379,7 @@ def page_ams_lab():
 # 页面 6：模型比较
 # ============================================================================
 def page_comparison():
-    st.title("📊 模型比较")
+    st.title("模型比较")
     ev = L.load_public_eval()
     lb = L.load_leaderboard()
     if not ev:
