@@ -15,7 +15,6 @@
 Higgs-Discovery-Dashboard/
 ├── code/
 │   ├── config.py               # 全局配置：路径、特征列表、随机种子、AMS 常量
-│   ├── requirements.txt
 │   ├── src/                    # 核心模块
 │   │   ├── data.py             # 数据加载、按 KaggleSet 划分、AMS 权重
 │   │   ├── preprocessing.py    # 两套预处理（树模型 / 线性模型 + Missing Indicator）
@@ -44,7 +43,8 @@ Higgs-Discovery-Dashboard/
 │   ├── *atlas-higgs-challenge-2014-v2.csv # 包含 818238 个事件的数据集
 │   └── check_dataset.py                   # 数据集探测
 ├── .gitignore
-├── LICENSE              
+├── LICENSE
+├── requirements.txt
 ├── README.md
 └── REPORT.md
 ```
