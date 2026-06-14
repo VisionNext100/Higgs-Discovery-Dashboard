@@ -3,7 +3,7 @@
 
 ### 一、项目简介
 
-2014年，CERN在Kaggle平台发起HiggsML挑战赛，旨在区分希格斯玻色子衰变信号与背景噪声，吸引了全球1785支队伍参赛，并催生了XGBoost等工业级工具。本项目基于该挑战赛，使用ATLAS实验的真实模拟数据，构建了一个希格斯玻色子信号识别与可解释分析系统，在复现经典方案的基础上实现了按喷注数量分组建模、SHAP可解释性分析等创新。主模型 XGBoost 在 45 万事件的 private 集达到 **ROC-AUC 0.913 / AMS 3.60**。  
+2014年，CERN在Kaggle平台发起HiggsML挑战赛，旨在区分希格斯玻色子衰变信号与背景噪声，吸引了全球1785支队伍参赛，并催生了XGBoost等工业级工具。本项目基于该挑战赛，使用ATLAS实验的真实模拟数据，构建了一个希格斯玻色子信号识别与可解释分析系统，在复现经典方案的基础上实现了按喷注数量分组建模、SHAP可解释性分析等创新。主模型 XGBoost 在 45 万事件的 private 集达到 **ROC-AUC 0.913** 和 **AMS 3.60**。  
 在合作之前，请移步下面的链接下载文件或阅读文档：  
 数据集：http://opendata.cern.ch/record/328/files/atlas-higgs-challenge-2014-v2.csv.gz  
 赛题文档：http://opendata.cern.ch/record/329/files/atlas-higgs-challenge-2014.pdf  
@@ -61,7 +61,7 @@ pip install -r requirements.txt
 python scripts/01_eda.py                   # EDA 图表
 python scripts/02_baseline.py              # 基准
 python scripts/03_model_comparison.py      # 训练并保存 5 个模型
-python scripts/04_hyperparameter_tuning.py # 调优主模型（耗时较长，~15 min）
+python scripts/04_hyperparameter_tuning.py # 调优主模型
 python scripts/05_jet_grouped.py           # Jet 分组实验
 python scripts/06_ams_optimization.py      # AMS 阈值优化
 python scripts/07_shap_analysis.py         # SHAP 可解释性
@@ -72,6 +72,7 @@ python scripts/08_robustness.py            # 鲁棒性与稳定性
 ```bash
 streamlit run app/dashboard.py
 ```  
+由于部分交互功能需要读取的 `atlas-higgs-challenge-2014-v2.csv` 和 `xgboost_tuned.joblib` 太大，因此本项目不部署 Streamlit。
 
 ### 四、补充说明
 1\. 数据划分：采用官方 `KaggleSet`（训练 25 万 / public 10 万 / private 45 万），阈值在 public 上选定，private 仅用于最终评估一次，避免信息泄漏。  

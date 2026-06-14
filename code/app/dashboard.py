@@ -113,7 +113,7 @@ def page_intro():
         st.subheader("项目背景")
         st.markdown(
             """
-            大型强子对撞机（LHC）每天产生海量粒子碰撞事件，其中绝大多数是
+            大型强子对撞机每天产生海量粒子碰撞事件，其中绝大多数是
             **背景事件（Background）**，只有极少数与 **希格斯玻色子信号（Signal）** 相关。
 
             本项目用机器学习从 30 个结构化物理特征中自动识别潜在的希格斯信号事件，
@@ -449,7 +449,7 @@ def main():
          "4 · SHAP 解释", "5 · AMS 实验室", "6 · 模型比较"],
     )
     st.sidebar.markdown("---")
-    st.sidebar.info("主模型：XGBoost（调优后）\n\nprivate AMS ≈ 3.60 | AUC ≈ 0.913")
+    st.sidebar.info("主模型：XGBoost\n\nprivate AMS ≈ 3.60 | AUC ≈ 0.913")
 
     if page.startswith("1"):
         page_intro()

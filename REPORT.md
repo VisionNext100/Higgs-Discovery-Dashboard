@@ -1,20 +1,18 @@
 # 基于机器学习的希格斯玻色子信号识别与可解释分析
 
-> 机器学习期末项目报告 · Higgs Event Discovery Dashboard
-
----
+> ML 期末项目报告 · Higgs Discovery Dashboard
 
 ## 目录
 1. 背景与问题定义
-2. 数据集与探索性分析（EDA）
+2. 数据集探查与分析
 3. 数据预处理
 4. 建模方法与训练
 5. 超参数优化与交叉验证
 6. 模型评估与结果
-7. 可解释性分析（SHAP）
-8. 可信机器学习（鲁棒性与稳定性）
+7. 可解释性分析
+8. 可信机器学习
 9. 创新实验：Jet 分组建模
-10. 交互式系统（Dashboard）
+10. 交互式系统
 11. 结论、局限性与改进方向
 12. 课程知识覆盖与团队分工
 
@@ -23,79 +21,114 @@
 ## 1. 背景与问题定义
 
 ### 1.1 问题背景
-大型强子对撞机（LHC）每天产生海量粒子碰撞事件，其中绝大多数是**背景事件（Background）**，
-只有极少数与**希格斯玻色子信号（Signal）**相关。传统物理分析依赖大量人工设计的筛选规则，
-而本项目尝试用机器学习从结构化碰撞事件特征中自动学习模式，识别潜在的希格斯信号。
+大型强子对撞机每天产生海量粒子碰撞事件，其中绝大多数是背景事件（Background），只有极少数与希格斯玻色子信号（Signal）相关。传统物理分析依赖大量人工设计的筛选规则，而本项目尝试用机器学习从结构化碰撞事件特征中自动学习模式，识别潜在的希格斯信号。
 
 ### 1.2 任务定义
-- **任务类型**：监督学习中的**二分类**问题（Signal=1 / Background=0）。
-- **输入**：一次碰撞事件的 30 维物理特征向量（13 个高阶 DER 特征 + 17 个原始 PRI 特征）。
-- **输出**：该事件为 Signal 的概率，以及在决策阈值下的类别。
-- **为什么用机器学习**：特征间存在复杂非线性耦合（PCA 显示低维不可分，见 §2.4），
-  人工规则难以穷尽；且数据规模大（81.8 万），适合数据驱动方法自动建模。
+- 选题缘由：特征间存在复杂非线性耦合（PCA 显示低维不可分，见 §2.4），人工规则难以穷尽；且数据规模庞大，适合数据驱动方法自动建模。
+- 类型：监督学习中的**二分类**问题（Signal=1 / Background=0）。
+- 输入：一次碰撞事件的 30 维物理特征向量，包括 13 个高阶 DER 特征和 17 个原始 PRI 特征。
+- 输出：该事件为 Signal 的概率，以及在决策阈值下的类别。
 
 ### 1.3 优化目标的特殊性
-本项目不仅优化 Accuracy / AUC，更优化高能物理领域的发现显著性指标
-**AMS（Approximate Median Significance）**：
-
-> AMS = √( 2·[ (s+b+b_reg)·ln(1 + s/(b+b_reg)) − s ] )
-
-其中 s、b 为加权的真/假正例计数，b_reg=10。AMS 衡量「把一批事件判为 signal 区域」时
-统计上偏离纯背景假设的显著性，是真实物理发现任务的目标。
+本项目不仅优化 Accuracy / AUC，更优化高能物理领域的发现显著性指标 AMS（Approximate Median Significance）：
+$$
+\text{AMS} = \sqrt{2\left( \left(s + b + b_{\text{reg}}\right)\ln\left(1 + \frac{s}{b + b_{\text{reg}}}\right) - s \right)}
+$$
+其中 $s$、$b$ 为加权的真或假正例计数，$b_{reg}=10$。AMS 衡量在一批事件被判定为信号区域时，其观测结果在统计上偏离纯背景假设的显著性，是真实物理发现任务的目标。
 
 ---
 
-## 2. 数据集与探索性分析
+## 2. 数据集探查与分析
 
 ### 2.1 数据集
 - 来源：CERN Open Data Portal — ATLAS Higgs Machine Learning Challenge 2014。
-- 规模：**818,238** 事件 × 35 列（30 个训练特征 + EventId/Weight/Label/KaggleSet/KaggleWeight）。
-- 标签分布：Signal 279,560（34.2%）/ Background 538,678（65.8%），存在类别不平衡。
-- 数据划分（采用官方 KaggleSet，避免主观划分偏差）：
-  | 集合 | 标记 | 数量 | 用途 |
-  |---|---|---|---|
-  | Training | t | 250,000 | 训练 |
-  | Public | b | 100,000 | 验证 / 调参 / 选阈值 |
-  | Private | v | 450,000 | **最终评估（仅用一次）** |
+- 规模：818,238 事件 × 35 列。
+- 特征：30 个训练特征，进一步可划分为：
+  - 17 个 PRI 特征 (Primitives)，他们在离子对撞后立刻被 ATLAS 探测器捕获；
+  - 13 个 DER 特征 (Derived)，他们是基于上面的 PRI 原始特征推导出来的高阶物理量。 
 
-### 2.2 缺失值分析（图 `eda/03_missing_rates.png`）
-数据用 **-999** 表示缺失，分两类来源：
+  和 5 个不参与训练的特征：  
+  - EventId：这是每个碰撞事件的唯一标识符，纯粹用于区分数据行，不包含任何可供模型学习的物理规律；
+  - Weight：这是代表该事件预期物理发生频率的统计权重，仅用于计算 AMS，若将其作为特征输入会导致极其严重的数据泄露；
+  - Label：这是模型需要预测的目标答案，显然不能作为特征进行训练；
+  - KaggleSet：这是数据集自带的元数据标签，仅用于区分该条样本属于官方划分的训练集、公开测试集还是私有测试集；
+  - KaggleWeight：这是为了适应不同数据子集独立评分而在内部重新归一化后的验证权重，同样仅用于计算。
+- 标签分布：Signal 279,560（34.2%）/ Background 538,678（65.8%），类别不平衡。
+- 数据划分（采用官方 KaggleSet）：
+  | 集合     | 标记 | 数量    | 用途                 |
+  | -------- | ---- | ------- | -------------------- |
+  | Training | t    | 250,000 | 训练                 |
+  | Public   | b    | 100,000 | 验证 / 调参 / 选阈值 |
+  | Private  | v    | 450,000 | 最终评估（仅用一次） |
+
+### 2.2 缺失值分析
+<div align="center">
+    <img src="./code/outputs/figures/eda/03_missing_rates.png" width="500" alt="各特征缺失率">
+    <br>
+    <em>各特征缺失率</em>
+</div>
+
+数据用 -999 表示缺失，分两类来源：
 - **结构性缺失**：当 `PRI_jet_num < 2` 时，喷注相关量（如 `DER_deltaeta_jet_jet`、
   `PRI_jet_subleading_*`）物理上不存在，缺失率约 71%；`PRI_jet_leading_*` 约 40%。
 - **重建失败缺失**：`DER_mass_MMC` 约 15.2%，表示质量重建失败。
 
-关键洞察：缺失模式由 `PRI_jet_num` 决定，**「缺失」本身携带物理信息**，
-这启发我们对树模型保留 -999、对线性模型加入 Missing Indicator（见 §3）。
+注意到缺失模式由 `PRI_jet_num` 决定，“缺失”本身携带物理信息，这启发我们在 §3 中对树模型保留 -999、对线性模型加入 Missing Indicator。
 
-### 2.3 喷注拓扑分析（图 `eda/02_jet_analysis.png`）
+### 2.3 喷注拓扑分析
+<div align="center">
+    <img src="./code/outputs/figures/eda/02_jet_analysis.png" width="800" alt="喷注拓扑分析">
+    <br>
+    <em>喷注拓扑分析</em>
+</div>
+
 不同 `PRI_jet_num` 组的 Signal 比例差异显著：
-| jet 数 | 占比 | Signal 占比 |
-|---|---|---|
-| 0 | 40.0% | 25.3% |
-| 1 | 30.9% | 35.7% |
-| 2 | 20.2% | **51.0%** |
-| 3 | 8.9% | 30.5% |
+| jet 数 | 占比  | Signal 占比 |
+| ------ | ----- | ----------- |
+| 0      | 40.0% | 25.3%       |
+| 1      | 30.9% | 35.7%       |
+| 2      | 20.2% | **51.0%**   |
+| 3      | 8.9%  | 30.5%       |
 
-这提示「按喷注分组建模」可能有益，催生了 §9 的创新实验。
+这提示按喷注分组建可能有益，催生了 §9 的创新实验。
 
-### 2.4 PCA 降维分析（图 `eda/06_pca_2d.png`、`07_pca_3d.png`）
-对标准化后的 30 维特征做 PCA：前 3 个主成分累计解释方差仅 **41.4%**，且二维/三维投影中
-Signal 与 Background **高度重叠**。这从经验上证明问题具有强非线性结构，
-**为采用随机森林、XGBoost、MLP 等非线性模型提供了直接依据**。
+### 2.4 PCA 降维分析
+<div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+    <div style="text-align: center;">
+        <img src="./code/outputs/figures/eda/06_pca_2d.png" width="300" alt="PCA 二维投影">
+        <br>
+        <em>PCA 二维投影</em>
+    </div>
+    <div style="text-align: center;">
+        <img src="./code/outputs/figures/eda/07_pca_3d.png" width="300" alt="PCA 三维投影">
+        <br>
+        <em>PCA 三维投影</em>
+    </div>
+</div>
 
-### 2.5 相关性分析（图 `eda/04_correlation_heatmap.png`、`05_label_correlation.png`）
-Pearson/Spearman 分析显示，与标签相关性最高的特征为质量类高阶量
-（`DER_mass_MMC`、`DER_mass_transverse_met_lep`、`DER_mass_vis`），与后续 SHAP 结论一致。
+对标准化后的 30 维特征做 PCA：前 3 个主成分累计解释方差仅 **41.4%**，且二维和三维投影中，Signal 与 Background 高度重叠。这从经验上证明问题具有强非线性结构，为采用随机森林、XGBoost、MLP 等非线性模型提供了直接依据。
+
+### 2.5 相关性分析
+<div align="center">
+    <img src="./code/outputs/figures/eda/04_correlation_heatmap.png" width="800" alt="30 个训练特征的相关性热力图">
+    <br>
+    <em>30 个训练特征的相关性热力图</em>
+</div>
+<div align="center">
+    <img src="./code/outputs/figures/eda/05_label_correlation.png" width="500" alt="前 15 的特征与标签的相关性">
+    <br>
+    <em>前 15 的特征与标签的相关性</em>
+</div>
+Pearson/Spearman 分析显示，与标签相关性最高的特征为质量类高阶量（`DER_mass_MMC`、`DER_mass_transverse_met_lep`、`DER_mass_vis`），与后续 SHAP 结论一致。
 
 ---
 
 ## 3. 数据预处理
 
-针对不同模型族设计两套方案（代码：`src/preprocessing.py`）。
+针对不同模型族设计两套方案，实现代码见 `src/preprocessing.py`。
 
 ### 3.1 树模型方案（Random Forest / XGBoost）
-**保留 -999**。XGBoost 通过 `missing=-999` 原生学习每个分裂的最优缺失方向；
-树模型可直接把「是否缺失」作为分裂依据，从而利用结构性缺失信息。
+**保留 -999**。XGBoost 通过 `missing=-999` 原生学习每个分裂的最优缺失方向；树模型可直接把“是否缺失”作为分裂依据，从而利用结构性缺失信息。
 
 ### 3.2 线性 / 神经网络方案（Logistic Regression / MLP）
 -999 对线性模型是灾难性异常值，构建如下流水线：
@@ -106,114 +139,215 @@ Pearson/Spearman 分析显示，与标签相关性最高的特征为质量类高
 
 输出维度：基础 33 列（29 连续 + 4 one-hot），加指示列后 44 列。
 
-### 3.3 A/B 对照（研究问题：缺失信息是否携带分类信息）
+### 3.3 A/B 对照
+研究问题：缺失信息是否携带分类信息。  
 预处理模块支持 `add_missing_indicator` 开关，可对比有/无指示列对 AUC/AMS 的影响。
 
 ---
 
 ## 4. 建模方法与训练
 
-统一封装于 `src/models.py`（模型工厂 + sklearn Pipeline + 训练评估接口）。
+统一封装于 `src/models.py`:
+- 模型工厂；
+- sklearn Pipeline；
+- 训练评估接口。
 
-### 4.1 基准模型（§性能底线，图见 `outputs/reports/baseline_metrics.csv`）
-| 模型 | Accuracy | ROC-AUC | AMS(best) | 说明 |
-|---|---|---|---|---|
-| 多数类基准 (Dummy) | 0.660 | 0.500 | 1.079 | 绝对下限 |
-| 逻辑回归 | 0.752 | 0.815 | 2.044 | 线性可分性上限 |
+### 4.1 基准模型
+参见 `outputs/reports/baseline_metrics.csv`，下表是其中部分指标的近似结果。
+| 模型               | Accuracy | ROC-AUC | AMS(best) | 说明           |
+| ------------------ | -------- | ------- | --------- | -------------- |
+| 多数类基准 (Dummy) | 0.660    | 0.500   | 1.079     | 绝对下限       |
+| 逻辑回归           | 0.752    | 0.815   | 2.044     | 线性可分性上限 |
 
 ### 4.2 候选模型与选择理由
+- **XGBoost**（Boosting 集成，主模型）：表格数据的业界 SOTA，原生支持缺失值，正则化强、可调空间大。
 - **逻辑回归**：可解释线性基线，衡量线性可分程度。
 - **随机森林**（Bagging 集成）：天然处理非线性与缺失，方差低、稳健。
-- **XGBoost**（Boosting 集成，**主模型**）：表格数据的业界 SOTA，原生支持缺失值，
-  正则化强、可调空间大。
 - **MLP**（神经网络）：通用函数逼近器，验证深度模型在该结构化任务上的表现并与树模型对比。
 
 ---
 
 ## 5. 超参数优化与交叉验证
+系统化调优而非人工试参，实现代码见 `scripts/04_hyperparameter_tuning.py`。
 
-代码：`scripts/04_hyperparameter_tuning.py`。系统化调优而非人工试参：
+1. 使用 RandomizedSearchCV 随机采样 30 组超参数组合，搭配3折交叉验证，以 ROC‑AUC 作为评分标准，快速定位高性能区域。
+2. 在最优参数附近，采用 GridSearchCV 配合5折交叉验证进行局部精细搜索。
+3. 通过5折交叉验证报告模型性能的均值和标准差，评估其稳定性。
+4. 绘制学习曲线与验证曲线，诊断模型的偏差与方差状态。  
 
-1. **RandomizedSearchCV**（30 组 × 3 折，scoring=ROC-AUC）快速定位高性能区域；
-2. **GridSearchCV**（5 折）在最优点附近局部精细搜索；
-3. **5 折交叉验证**报告稳定性；
-4. **学习曲线 / 验证曲线**诊断偏差-方差。
+结果：
+- 最优超参数：`max_depth=9`, `learning_rate=0.0284`, `n_estimators=592`,
+`subsample=0.855`, `colsample_bytree=0.732`, `min_child_weight=8`, `reg_lambda=3.65`。
+- 5 折 CV ROC-AUC = 0.9127 ± 0.0009，标准差极小，泛化稳定。
+<div align="center">
+    <img src="./code/outputs/figures/tuning/01_hyperparam_importance.png" width="500" alt="超参数重要性">
+    <br>
+    <em>超参数重要性</em>
+</div>
 
-**最优超参数**：`max_depth=9, learning_rate=0.0284, n_estimators=592,
-subsample=0.855, colsample_bytree=0.732, min_child_weight=8, reg_lambda=3.65`。
-
-**5 折 CV ROC-AUC = 0.9127 ± 0.0009**（标准差极小，泛化稳定）。
-
-超参数重要性（图 `tuning/01_hyperparam_importance.png`）：
-`subsample > n_estimators > learning_rate`，说明采样比例与模型容量影响最大。
-学习曲线（`tuning/03_learning_curve.png`）显示训练/验证差距小，**无明显过拟合**。
+由 `subsample > n_estimators > learning_rate` 可知，采样比例与模型容量影响最大。
+<div align="center">
+    <img src="./code/outputs/figures/tuning/03_learning_curve.png" width="400" alt="XGB 调优后的学习曲线">
+    <br>
+    <em>XGB 调优后的学习曲线</em>
+</div>
+学习曲线表明训练过程中未出现明显过拟合。
 
 ---
 
 ## 6. 模型评估与结果
 
-### 6.1 评估指标选择（评分 3.1）
-分类问题不能只看 Accuracy（因类别不平衡）。本项目报告：
+### 6.1 评估指标选择
+由于类别不平衡，因此该分类问题不能只看 Accuracy。本项目报告：
+- **AMS**：物理发现显著性；
 - **Accuracy / Precision / Recall / F1**：综合刻画分类质量；
-- **ROC-AUC**：阈值无关的排序能力；
-- **AMS**：物理发现显著性（核心目标）。
+- **ROC-AUC**：阈值无关的排序能力。
 
-### 6.2 模型排行榜（评估集 = public，图 `comparison/`）
-| 模型 | Accuracy | Precision | Recall | F1 | ROC-AUC | AMS(best) |
-|---|---|---|---|---|---|---|
-| 随机森林 | 0.837 | 0.790 | 0.710 | 0.748 | 0.9057 | 3.520 |
-| XGBoost（默认） | 0.843 | 0.789 | 0.735 | 0.761 | 0.9106 | 3.447 |
-| MLP | 0.840 | 0.777 | 0.743 | 0.760 | 0.9083 | 3.385 |
-| 逻辑回归 | 0.752 | 0.668 | 0.539 | 0.596 | 0.8148 | 2.044 |
-| 多数类基准 | 0.660 | 0.000 | 0.000 | 0.000 | 0.5000 | 1.079 |
+### 6.2 模型排行榜
+以下指标的评估集均为 `public`。
+<div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+    <div style="text-align: center;">
+        <img src="./code/outputs/figures/comparison/01_roc_curves.png" width="200" alt="ROC 曲线对比">
+        <br>
+        <em>ROC 曲线对比</em>
+    </div>
+    <div style="text-align: center;">
+        <img src="./code/outputs/figures/comparison/02_pr_curves.png" width="200" alt="P-R 曲线对比">
+        <br>
+        <em>P-R 曲线对比</em>
+    </div>
+</div>
 
-三个非线性模型 ROC-AUC 全部 ≈ 0.91，**显著超过线性基线**（0.815），印证了 §2.4 的非线性判断。
+<div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+    <div style="text-align: center;">
+    <img src="./code/outputs/figures/comparison/03_leaderboard_ams.png" width="400" alt="模型排行榜（按 AMS(best)）">
+    <br>
+    <em>模型排行榜（按 AMS(best)）</em>
+    </div>
+    <div style="text-align: center;">
+    <img src="./code/outputs/figures/comparison/04_leaderboard_auc.png" width="400" alt="模型排行榜（按 ROC-AUC）">
+    <br>
+    <em>模型排行榜（按 ROC-AUC）</em>
+    </div>
+</div>
+<div align="center">
+    <img src="./code/outputs/figures/comparison/05_confusion_best.png" width="300" alt="随机森林混淆矩阵">
+    <br>
+    <em>随机森林混淆矩阵</em>
+</div>
 
-### 6.3 主模型最终结果（private 集，仅评估一次）
-调优后 XGBoost，阈值在 public 上选定（0.840），在 private 上：
-- **ROC-AUC = 0.9131**
-- **AMS = 3.5959**（private 自身最优阈值 0.830 对应 AMS 3.6074，说明阈值迁移几乎无损）
+| 模型            | Accuracy | Precision | Recall | F1    | ROC-AUC | AMS(best) |
+| --------------- | -------- | --------- | ------ | ----- | ------- | --------- |
+| 随机森林        | 0.837    | 0.790     | 0.710  | 0.748 | 0.9057  | 3.520     |
+| XGBoost（默认） | 0.843    | 0.789     | 0.735  | 0.761 | 0.9106  | 3.447     |
+| MLP             | 0.840    | 0.777     | 0.743  | 0.760 | 0.9083  | 3.385     |
+| 逻辑回归        | 0.752    | 0.668     | 0.539  | 0.596 | 0.8148  | 2.044     |
+| 多数类基准      | 0.660    | 0.000     | 0.000  | 0.000 | 0.5000  | 1.079     |
 
-### 6.4 阈值与 AMS（图 `ams/01_threshold_ams.png`、`02_threshold_metrics.png`）
-Threshold–AMS 曲线在 **0.84** 处取得峰值。此时 Precision≈0.93、Recall≈0.40——
-**AMS 偏好高纯度选择**，这解释了为什么物理发现的最优阈值远高于直觉的 0.5，
-也说明仅用 Accuracy/F1 评价会得出错误的工作点。
+三个非线性模型 ROC-AUC 全部近似 0.91，显著超过线性基线的 0.815，印证了此前的非线性判断。
+
+### 6.3 主模型最终结果
+仅在 private 评估一次。
+调优后 XGBoost，在 public 上选定阈值为 0.840，在 private 上：
+- ROC-AUC = 0.9131
+- AMS = 3.5959
+
+private 自身最优阈值 0.830 对应 AMS 3.6074，说明阈值迁移几乎无损。
+
+### 6.4 阈值与 AMS
+<div align="center">
+    <img src="./code/outputs/figures/ams/02_threshold_metrics.png" width="500" alt="阈值对各指标的影响">
+    <br>
+    <em>阈值对各指标的影响</em>
+</div>
+
+Threshold–AMS 曲线在 **0.84** 处取得峰值。此时 $Precision≈0.93$、$Recall≈0.40$——AMS 偏好高纯度选择，这解释了为什么物理发现的最优阈值远高于直觉的 0.5，也说明了为什么仅用 Accuracy 或 F1 评价会得出错误的结论。
 
 ---
 
-## 7. 可解释性分析（SHAP）
+## 7. 可解释性分析
+用 XGBoost 原生 TreeSHAP，兼容 xgboost 3.x，实现代码见 `scripts/07_shap_analysis.py`。
 
-代码：`scripts/07_shap_analysis.py`（用 XGBoost 原生 TreeSHAP，兼容 xgboost 3.x）。
+### 7.1 全局解释
+<div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+    <div style="text-align: center;">
+    <img src="./code/outputs/figures/shap/01_shap_bar.png" width="400" alt="SHAP 全局特征重要性">
+    <br>
+    <em>SHAP 全局特征重要性</em>
+    </div>
+    <div style="text-align: center;">
+    <img src="./code/outputs/figures/shap/02_shap_beeswarm.png" width="400" alt="SHAP beeswarm">
+    <br>
+    <em>SHAP beeswarm</em>
+    </div>
+</div>
 
-### 7.1 全局解释（图 `shap/01_shap_bar.png`、`02_shap_beeswarm.png`）
-Top 重要特征：`DER_mass_MMC` ≫ `DER_mass_transverse_met_lep` > `DER_mass_vis` > `PRI_tau_pt`。
-**最重要的是希格斯质量估计量 `DER_mass_MMC`**，且 beeswarm 显示其高值推动 Signal 预测——
-模型学到的规律与「希格斯通过不变质量峰识别」的真实物理高度一致，增强了可信度。
+特征重要性：`DER_mass_MMC` ≫ `DER_mass_transverse_met_lep` > `DER_mass_vis` > `PRI_tau_pt`。最重要的是希格斯质量估计量 `DER_mass_MMC`，且 beeswarm 显示其高值推动 Signal 预测——
+模型学到的规律与“希格斯通过不变质量峰识别”的真实物理高度一致，增强了可信度。  
+DER_mass_MMC(Missing Mass Calculator)被用于在 H→ττ 衰变中重建希格斯玻色子的质量。由于衰变产生的 τ 轻子会进一步衰变成无法探测的中微子，导致能量“缺失”，因此无法直接计算质量。MMC 通过扫描所有可能的运动学配置，并结合 τ 衰变的概率知识进行加权，最终给出最可能的候选质量估计值。对于 H→ττ 信号事件，其重建质量应集中在希格斯玻色子的已知质量（约 125 GeV）附近，而背景过程的峰值则在约 91 GeV 处，这使得该特征成为区分信号与背景最关键的物理变量。
 
-### 7.2 局部解释与错误案例（图 `shap/03~07`）
-对单个事件用 waterfall 图解释预测；并分析 FP/FN 的平均 SHAP 驱动特征，
-定位模型犯错的主要原因（如 `PRI_jet_leading_eta`、横向质量等把背景事件误推向 signal）。
+### 7.2 局部解释与错误案例
+对单个事件用 waterfall 图解释预测，并分析 FP 和 FN 的均值 SHAP 驱动特征，定位模型犯错的主要原因（如 `PRI_jet_leading_eta`、横向质量等把背景事件误推向 signal）。
+<div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+    <div style="text-align: center;">
+    <img src="./code/outputs/figures/shap/03_local_TP.png" width="400" alt="正确判定为 Signal（TP）">
+    <br>
+    <em>正确判定为 Signal（TP）</em>
+    </div>
+    <div style="text-align: center;">
+    <img src="./code/outputs/figures/shap/04_local_TN.png" width="400" alt="正确判定为 Background（TN）">
+    <br>
+    <em>正确判定为 Background（TN）</em>
+    </div>
+</div>
+<div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+    <div style="text-align: center;">
+    <img src="./code/outputs/figures/shap/05_local_FP.png" width="400" alt="错误判定为 Signal（FP）">
+    <br>
+    <em>错误判定为 Signal（FP）</em>
+    </div>
+    <div style="text-align: center;">
+    <img src="./code/outputs/figures/shap/06_local_FN.png" width="400" alt="错误判定为 Background（FN）">
+    <br>
+    <em>错误判定为 Background（FN）</em>
+    </div>
+</div>
+<div align="center">
+    <img src="./code/outputs/figures/shap/07_error_drivers.png" width="700" alt="错误案例的SHAP贡献分析">
+    <br>
+    <em>错误案例的SHAP贡献分析</em>
+</div>
 
 ---
 
 ## 8. 可信机器学习
+实现代码：`scripts/08_robustness.py`。
 
-代码：`scripts/08_robustness.py`。
+### 8.1 鲁棒性
+<div align="center">
+    <img src="./code/outputs/figures/robustness/01_noise_robustness.png" width="800" alt="模型对测量噪声的敏感度">
+    <br>
+    <em>模型对测量噪声的敏感度</em>
+</div>
 
-### 8.1 鲁棒性（注入测量噪声，图 `robustness/01_noise_robustness.png`）
-对评估特征注入相对高斯噪声（模拟探测器误差）：
-| 噪声 σ | ROC-AUC | AMS |
-|---|---|---|
-| 0% | 0.912 | 3.526 |
-| 5% | 0.908 | 3.358 |
-| 10% | 0.895 | 2.986 |
-| 20% | 0.853 | 2.096 |
+对评估特征注入相对高斯噪声，从而模拟探测器误差：
+| 噪声 σ | ROC-AUC | AMS   |
+| ------ | ------- | ----- |
+| 0%     | 0.912   | 3.526 |
+| 5%     | 0.908   | 3.358 |
+| 10%    | 0.895   | 2.986 |
+| 20%    | 0.853   | 2.096 |
 
-小噪声下性能优雅退化；但 AMS 对噪声比 AUC 更敏感（依赖尾部纯度），是部署需关注的风险点。
+小噪声下性能小幅退化；但 AMS 对噪声比 AUC 更敏感，是部署时需要关注的风险点。
 
-### 8.2 稳定性（多随机种子，图 `robustness/02_seed_stability.png`）
-4 个随机种子 {42, 2025, 3407, 114514} 重训：
-**ROC-AUC μ=0.9119，σ=0.00004**；AMS(best) μ≈3.554。模型对随机性几乎不敏感。
+### 8.2 稳定性
+<div align="center">
+    <img src="./code/outputs/figures/robustness/02_seed_stability.png" width="700" alt="模型对随机种子的敏感度">
+    <br>
+    <em>模型对随机种子的敏感度</em>
+</div>
+
+使用 4 个随机种子 $\{42, 2025, 3407, 114514\}$ 重训，结果：ROC-AUC $μ=0.9119$，$σ=0.00004$；AMS(best) $μ≈3.554$。模型对随机性几乎不敏感。
 
 ---
 
@@ -221,29 +355,27 @@ Top 重要特征：`DER_mass_MMC` ≫ `DER_mass_transverse_met_lep` > `DER_mass_
 
 代码：`scripts/05_jet_grouped.py`。基于 §2.3 的拓扑差异，对比：
 - 方案 A：单个 XGBoost 全量训练；
-- 方案 B：按 jet∈{0,1,2,3} 训练 4 个专家模型，合并预测。
+- 方案 B：按 $jet \in \{0,1,2,3\}$ 训练 4 个专家模型，合并预测。
 
-| 方案 | ROC-AUC | AMS(best) |
-|---|---|---|
-| A 全量 | 0.9119 | 3.549 |
-| B 分组 | 0.9105 | 3.509 |
+| 方案   | ROC-AUC | AMS(best) |
+| ------ | ------- | --------- |
+| A 全量 | 0.9119  | 3.549     |
+| B 分组 | 0.9105  | 3.509     |
 
-**结论（诚实的反直觉发现）**：分组**未带来提升，反而略降**。原因是 XGBoost 已能通过对
-`PRI_jet_num` 与缺失模式分裂，**隐式学到喷注拓扑结构**；显式分组只是减少了每个子模型的
-训练样本。这一对照实验体现了「先提假设、再用实验客观验证」的科学方法。
+结论：分组未带来提升，反而略降。  
+原因：XGBoost 已能通过对 `PRI_jet_num` 与缺失模式分裂，隐式学到喷注拓扑结构；显式分组只是减少了每个子模型的训练样本。这一对照实验体现了“先提假设、再用实验客观验证”的科学方法。  
+**建议后期尝试其他创新方法进行改进**。
 
 ---
 
-## 10. 交互式系统（Dashboard）
-
-代码：`app/dashboard.py`（Streamlit + Plotly）。运行：`streamlit run app/dashboard.py`。
+## 10. 交互式系统
 六个页面：
 1. **项目介绍**：背景、数据集、模型信息与排行榜。
-2. **Event Display**：基于 φ/pT 的横向平面事件可视化（解释性示意，非真实重建）。
+2. **Event Display**：基于 $φ/pT$ 的横向平面事件可视化。注意这只是解释性示意，非真实重建。
 3. **实时预测**：Signal 概率仪表盘 + 预测/真实标签对照。
 4. **SHAP 解释**：当前事件的特征贡献条形图。
 5. **AMS 实验室**：拖动阈值实时更新 Precision/Recall/F1/AMS。
-6. **模型比较**：交互式 ROC/PR 曲线、混淆矩阵、排行榜。
+6. **模型比较**：交互式 ROC 曲线、PR 曲线、混淆矩阵、排行榜。
 
 ---
 
@@ -252,13 +384,13 @@ Top 重要特征：`DER_mass_MMC` ≫ `DER_mass_transverse_met_lep` > `DER_mass_
 ### 11.1 结论
 - 构建了完整的希格斯信号识别机器学习系统，主模型 XGBoost 在独立 private 集达到
   **ROC-AUC 0.913、AMS 3.60**，显著优于线性基线，且跨种子极其稳定。
-- 通过 AMS 阈值优化、SHAP 可解释性、鲁棒性分析，实现了「可发现、可解释、可信」的闭环。
-- SHAP 结论与真实物理（质量峰）一致，模型学到的是物理规律而非伪相关。
+- 通过 AMS 阈值优化、SHAP 可解释性、鲁棒性分析，实现了“可发现、可解释、可信”的闭环。
+- SHAP 结论与真实物理一致，模型学到的是物理规律而非伪相关。
 
 ### 11.2 局限性
-1. **类别不平衡 + 不确定性**：未显式建模权重不平衡与系统误差；AMS 对噪声较敏感（§8.1）。
-2. **过拟合风险可控但存在**：训练/验证差距虽小，深树（max_depth=9）仍有一定方差。
-3. **数据偏见**：数据来自蒙特卡洛模拟，与真实探测器数据可能存在分布偏移（sim-to-real gap）。
+1. **类别不平衡与不确定性**：未显式建模权重不平衡与系统误差；AMS 对噪声较敏感。
+2. **过拟合风险可控但存在**：训练集与验证差距虽小，深树 `max_depth=9` 仍有一定方差。
+3. **数据偏见**：数据来自蒙特卡洛模拟，与真实探测器数据可能存在分布偏移。
 4. **特征工程有限**：主要使用官方提供特征，未引入物理领域的新构造量。
 
 ### 11.3 改进方向
@@ -273,18 +405,16 @@ Top 重要特征：`DER_mass_MMC` ≫ `DER_mass_transverse_met_lep` > `DER_mass_
 ## 12. 课程知识覆盖与团队分工
 
 ### 12.1 课程知识覆盖
-线性分类（逻辑回归）、PCA 降维、集成学习（随机森林 / XGBoost）、神经网络（MLP）、
-交叉验证与超参数搜索、模型评估、可解释机器学习（SHAP）、可信机器学习（鲁棒性）、
-数据可视化、机器学习系统开发。
+线性分类（逻辑回归）、PCA 降维、集成学习（随机森林 / XGBoost）、神经网络（MLP）、交叉验证与超参数搜索、模型评估、可解释机器学习（SHAP）、可信机器学习（鲁棒性）、数据可视化、机器学习系统开发。
 
 ### 12.2 创新点小结
 1. 面向物理发现的 **AMS 优化** 而非单纯 Accuracy。
-2. **Jet 分组建模** 对照实验（含诚实的反直觉结论）。
+2. **Jet 分组建模** 对照实验。
 3. **SHAP** 全局/局部可解释 + 错误案例分析。
 4. **MADAI 风格 Event Display** 交互可视化。
 5. **可信机器学习**：噪声鲁棒性 + 多种子稳定性。
 6. **PCA** 降维结构分析支撑模型选择。
 
 ### 12.3 团队分工
-> 请在此填写各成员分工与 Git 协作说明（评分 5.1）。建议按模块划分：
-> 数据/EDA、建模/调优、可解释性/可信性、系统开发、报告/答辩。
+数据探查与处理、建模与调优、可解释性与可信性、系统开发、报告与答辩。  
+使用 Git 进行版本管理。
