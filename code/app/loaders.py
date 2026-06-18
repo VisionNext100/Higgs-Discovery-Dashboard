@@ -23,6 +23,38 @@ def load_model():
     return joblib.load(C.MODEL_DIR / "xgboost_tuned.joblib")
 
 
+@st.cache_resource(show_spinner="加载最终模型（物理权重 + CV-Bagging）...")
+def load_final_models() -> list:
+    """加载最终模型集成（5 个加权 Bagging 的 XGBoost），按编号排序。"""
+    d = C.MODEL_DIR / "s6_wbag"
+    if not d.exists():
+        return []
+    return [joblib.load(p) for p in sorted(d.glob("xgb_wbag_*.joblib"))]
+
+
+@st.cache_data(show_spinner=False)
+def load_final_meta() -> dict:
+    path = C.MODEL_DIR / "s6_meta.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+@st.cache_data(show_spinner=False)
+def load_final_scan() -> dict:
+    """最终模型在 public 集的阈值扫描数据（供 AMS 实验室 / 模型比较复用）。"""
+    path = C.REPORT_DIR / "final_model.npz"
+    if not path.exists():
+        return {}
+    npz = np.load(path)
+    return {k: npz[k] for k in npz.files}
+
+
+@st.cache_data(show_spinner=False)
+def load_final_eval() -> dict:
+    """最终模型在 public 集的排行榜式指标。"""
+    path = C.REPORT_DIR / "final_model_eval.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
 @st.cache_resource(show_spinner=False)
 def load_all_models() -> dict:
     models = {}

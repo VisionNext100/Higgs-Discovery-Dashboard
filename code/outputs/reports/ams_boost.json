@@ -1,0 +1,72 @@
+{
+  "baseline_private_ams": 3.576801652294014,
+  "best_strategy": "S6 物理权重+CV-Bagging",
+  "best_private_ams": 3.693025922734375,
+  "gain": 0.1162242704403611,
+  "all": [
+    {
+      "策略": "S0 基线(XGBoost)",
+      "public_AMS": 3.5493,
+      "best_thr": 0.82,
+      "private_AMS": 3.5768,
+      "private_AUC": 0.9131,
+      "private_AMS_gain": 0.0
+    },
+    {
+      "策略": "S1 物理权重训练",
+      "public_AMS": 3.6922,
+      "best_thr": 0.93,
+      "private_AMS": 3.6878,
+      "private_AUC": 0.9033,
+      "private_AMS_gain": 0.111
+    },
+    {
+      "策略": "S2 CV-Bagging XGBoost",
+      "public_AMS": 3.5634,
+      "best_thr": 0.85,
+      "private_AMS": 3.619,
+      "private_AUC": 0.9134,
+      "private_AMS_gain": 0.0422
+    },
+    {
+      "策略": "S3 集成(概率均值)",
+      "public_AMS": 3.5699,
+      "best_thr": 0.82,
+      "private_AMS": 3.6049,
+      "private_AUC": 0.9133,
+      "private_AMS_gain": 0.0281
+    },
+    {
+      "策略": "S4 集成(排名均值)",
+      "public_AMS": 3.5652,
+      "best_thr": 0.85,
+      "private_AMS": 3.6014,
+      "private_AUC": 0.9134,
+      "private_AMS_gain": 0.0246
+    },
+    {
+      "策略": "S5 凸组合(xgb=0.3,rf=0.3,mlp=0.4)",
+      "public_AMS": 3.5829,
+      "best_thr": 0.85,
+      "private_AMS": 3.5937,
+      "private_AUC": 0.9134,
+      "private_AMS_gain": 0.0169
+    },
+    {
+      "策略": "S6 物理权重+CV-Bagging",
+      "public_AMS": 3.7063,
+      "best_thr": 0.95,
+      "private_AMS": 3.693,
+      "private_AUC": 0.9037,
+      "private_AMS_gain": 0.1162
+    },
+    {
+      "策略": "S7 集成(权重bag+RF+MLP)",
+      "public_AMS": 3.6613,
+      "best_thr": 0.85,
+      "private_AMS": 3.6654,
+      "private_AUC": 0.9118,
+      "private_AMS_gain": 0.0886
+    }
+  ]
+}

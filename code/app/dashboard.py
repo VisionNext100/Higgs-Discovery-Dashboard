@@ -8,12 +8,14 @@ Higgs Event Discovery Dashboard
 （在 code/ 目录下执行）
 
 页面：
-1. 项目介绍      背景 / 数据集 / 模型信息
-2. Event Display 碰撞事件可视化（基于特征的解释性示意，非真实重建）
-3. 实时预测      Signal 概率 / 预测标签 / 真实标签
-4. SHAP 解释     当前事件的特征贡献
-5. AMS 实验室    拖动阈值实时更新 Precision/Recall/F1/AMS
-6. 模型比较      ROC / PR / 混淆矩阵 / 排行榜
+1. 项目介绍       背景 / 数据集 / 模型信息 / AMS 指标
+2. 碰撞事件可视化  基于特征的解释性示意（非真实重建）
+3. 实时预测       Signal 概率 / 可调阈值 / 预测对照（最终模型）
+4. SHAP 解释      当前事件的特征贡献（最终模型）
+5. AMS 实验室     拖动阈值实时更新 Precision/Recall/F1/AMS
+6. 模型比较       ROC / PR / 混淆矩阵 / 排行榜
+
+最终模型 = 物理权重训练 + 5 折 CV-Bagging 的 XGBoost 集成。
 """
 
 from __future__ import annotations
@@ -78,6 +80,27 @@ st.markdown(
 COLOR_SIGNAL = "#d62728"
 COLOR_BKG = "#1f77b4"
 
+# 最终模型对外展示名称（物理权重训练 + 5 折 CV-Bagging 的 XGBoost 集成）
+FINAL_NAME = "物理权重 + CV-Bagging"
+
+
+def final_display_name(key: str) -> str:
+    return FINAL_NAME if key == "final" else M.DISPLAY_NAME.get(key, key)
+
+
+def get_merged_leaderboard() -> pd.DataFrame:
+    """在基础模型排行榜中并入最终模型，按 AMS(best) 降序。"""
+    lb = L.load_leaderboard()
+    fe = L.load_final_eval()
+    if lb.empty or not fe:
+        return lb
+    if (lb["模型"] == FINAL_NAME).any():
+        return lb
+    row = {c: fe.get(c, np.nan) for c in lb.columns}
+    row["模型"] = FINAL_NAME
+    lb = pd.concat([lb, pd.DataFrame([row])], ignore_index=True)
+    return lb.sort_values("AMS(best)", ascending=False).reset_index(drop=True)
+
 
 # ----------------------------------------------------------------------------
 # 共享状态：当前事件索引
@@ -94,6 +117,12 @@ def predict_proba_single(model, row: pd.Series) -> float:
     return float(model.predict_proba(X)[:, 1][0])
 
 
+def final_proba_single(models: list, row: pd.Series) -> float:
+    """最终模型集成：对 5 个加权 Bagging 模型的 Signal 概率取平均。"""
+    X = row[C.FEATURE_COLS].to_frame().T.astype(float)
+    return float(np.mean([m.predict_proba(X)[:, 1][0] for m in models]))
+
+
 # ============================================================================
 # 页面 1：项目介绍
 # ============================================================================
@@ -104,8 +133,8 @@ def page_intro():
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("数据总量", "818,238", "事件")
     col2.metric("物理特征", "30", "DER + PRI")
-    col3.metric("主模型 ROC-AUC", "0.913", "private")
-    col4.metric("最终 AMS", "3.60", "private")
+    col3.metric("最佳 ROC-AUC", "0.913", "private")
+    col4.metric("最佳 AMS", "3.69", "private")
 
     st.markdown("---")
     c1, c2 = st.columns([1.2, 1])
@@ -121,12 +150,26 @@ def page_intro():
             而非单纯优化 Accuracy。
             """
         )
+        st.latex(
+            r"\mathrm{AMS} = \sqrt{2\left[(s+b+b_r)\,\ln\!\left(1+\frac{s}{b+b_r}\right) - s\right]}"
+        )
+        st.markdown(
+            r"""
+            其中 $s$、$b$ 分别为被判定为信号区域内加权 TP 与 FP 计数，
+            $b_r=10$ 为正则项。直观地：
+
+            - **奖励 TP**：增大 $s$ 会提升 AMS；
+            - **惩罚 FP**：增大 $b$ 会拉低 AMS；
+            - 因此 AMS 偏好高决策阈值——只在高纯度区域才宣称“发现”。
+            """
+        )
         st.subheader("方法概览")
         st.markdown(
             """
             - **任务类型**：二分类（Signal vs Background）
             - **数据划分**：官方 KaggleSet（训练 25 万 / 公开 10 万 / 私有 45 万）
-            - **模型**：逻辑回归 → 随机森林 → **XGBoost（主模型）** → MLP
+            - **模型**：逻辑回归 → 随机森林 → XGBoost（主模型） → MLP
+            - **最终模型**：物理权重训练 + 5 折 CV-Bagging 的 XGBoost 集成
             - **调优**：RandomizedSearch + GridSearch + 5 折交叉验证
             - **可解释性**：SHAP（全局 + 局部）
             - **可信性**：噪声鲁棒性 + 随机种子稳定性
@@ -147,20 +190,20 @@ def page_intro():
             | 缺失标记 | -999（结构性 / 重建失败）|
             """
         )
-        lb = L.load_leaderboard()
+        lb = get_merged_leaderboard()
         if not lb.empty:
             st.subheader("模型排行榜（public）")
             show = lb[["模型", "ROC-AUC", "AMS(best)"]].copy()
             st.dataframe(show, hide_index=True, use_container_width=True)
 
-    st.info("说明：本系统的 Event Display 为基于特征生成的解释性可视化，并非真实探测器事件重建。")
+    st.info("说明：本系统的「碰撞事件可视化」为基于特征生成的解释性示意图，并非真实探测器事件重建。")
 
 
 # ============================================================================
-# 页面 2：Event Display
+# 页面 2：碰撞事件可视化
 # ============================================================================
 def page_event_display(pub: pd.DataFrame):
-    st.title("Event Display — 碰撞事件可视化")
+    st.title("碰撞事件可视化")
     st.caption("横向平面（transverse plane）示意图：箭头方向为方位角 φ，长度正比于横动量 pT")
 
     idx = ensure_event_index(len(pub))
@@ -229,8 +272,9 @@ def page_event_display(pub: pd.DataFrame):
 # ============================================================================
 # 页面 3：实时预测
 # ============================================================================
-def page_prediction(pub: pd.DataFrame, model):
+def page_prediction(pub: pd.DataFrame, final_models: list, final_meta: dict):
     st.title("实时预测")
+    st.caption("最终模型：物理权重 + CV-Bagging（5 个 XGBoost 概率平均）")
     idx = ensure_event_index(len(pub))
     cols = st.columns([1, 1, 3])
     if cols[0].button("随机事件", use_container_width=True):
@@ -238,8 +282,13 @@ def page_prediction(pub: pd.DataFrame, model):
     idx = cols[1].number_input("事件索引", 0, len(pub) - 1, st.session_state.event_idx, key="event_idx")
 
     row = pub.iloc[idx]
-    proba = predict_proba_single(model, row)
-    threshold = L.load_json("ams_optimization.json").get("public_best_threshold", 0.5)
+    proba = final_proba_single(final_models, row)
+
+    best_t = float(final_meta.get("best_threshold", 0.5))
+    threshold = st.slider(
+        "决策阈值（拖动可调，默认值为最终模型在 public 集上的 AMS 最优阈值）",
+        0.10, 0.99, round(best_t, 2), 0.01,
+    )
     pred = "Signal" if proba >= threshold else "Background"
     truth = "Signal" if row[C.LABEL_COL] == "s" else "Background"
     correct = pred == truth
@@ -266,7 +315,7 @@ def page_prediction(pub: pd.DataFrame, model):
         st.markdown("### 预测结果")
         badge = "signal-badge" if pred == "Signal" else "bkg-badge"
         st.markdown(f'预测：<span class="{badge}">{pred.upper()}</span>', unsafe_allow_html=True)
-        st.write(f"决策阈值（AMS 最优）：**{threshold:.3f}**")
+        st.write(f"当前决策阈值：**{threshold:.3f}**")
         st.write(f"Signal 概率：**{proba:.4f}**")
     with c3:
         st.markdown("### 真实标签对照")
@@ -282,13 +331,13 @@ def page_prediction(pub: pd.DataFrame, model):
         feat["缺失"] = (feat["取值"] == C.MISSING_VALUE)
         st.dataframe(feat, use_container_width=True, height=400)
 
-
 # ============================================================================
 # 页面 4：SHAP 解释
 # ============================================================================
-def page_shap(pub: pd.DataFrame, model):
+def page_shap(pub: pd.DataFrame, final_models: list):
     st.title("SHAP 可解释性")
-    st.caption("展示当前事件中，哪些特征把预测推向 Signal（红）或 Background（蓝）")
+    st.caption("展示当前事件中，哪些特征把预测推向 Signal（红）或 Background（蓝）。"
+               "贡献为最终模型（物理权重 + CV-Bagging）5 个成员模型的平均 SHAP。")
 
     from src.explain import tree_shap_values
 
@@ -297,8 +346,8 @@ def page_shap(pub: pd.DataFrame, model):
     row = pub.iloc[idx]
     X = row[C.FEATURE_COLS].to_frame().T.astype(float)
 
-    proba = predict_proba_single(model, row)
-    sv = tree_shap_values(model, X)[0]
+    proba = final_proba_single(final_models, row)
+    sv = np.mean([tree_shap_values(m, X)[0] for m in final_models], axis=0)
     contrib = pd.DataFrame({"feature": C.FEATURE_COLS, "shap": sv, "value": X.iloc[0].values})
     contrib["abs"] = contrib["shap"].abs()
     top = contrib.sort_values("abs", ascending=False).head(15).iloc[::-1]
@@ -317,7 +366,7 @@ def page_shap(pub: pd.DataFrame, model):
         xaxis_title="SHAP 值（log-odds）",
     )
     st.plotly_chart(fig, use_container_width=True)
-    st.caption("注：SHAP 值在 log-odds 空间，所有特征贡献 + 基准值 = 模型输出。")
+    st.caption("注：SHAP 值在 log-odds 空间，此处为最终集成各成员模型贡献的平均值。")
 
 
 # ============================================================================
@@ -325,11 +374,14 @@ def page_shap(pub: pd.DataFrame, model):
 # ============================================================================
 def page_ams_lab():
     st.title("AMS 实验室")
-    st.caption("拖动决策阈值，实时观察 Precision / Recall / F1 / AMS 的变化")
+    st.caption("基于最终模型（物理权重 + CV-Bagging）。拖动决策阈值，实时观察 "
+               "Precision / Recall / F1 / AMS 的变化")
 
-    scan = L.load_ams_scan()
+    scan = L.load_final_scan()
     if not scan:
-        st.warning("缺少 ams_scan.npz，请先运行 scripts/06_ams_optimization.py")
+        scan = L.load_ams_scan()
+    if not scan:
+        st.warning("缺少 final_model.npz，请先运行 scripts/09_ams_boost.py")
         return
 
     proba = scan["proba_public"]
@@ -381,12 +433,19 @@ def page_ams_lab():
 def page_comparison():
     st.title("模型比较")
     ev = L.load_public_eval()
-    lb = L.load_leaderboard()
+    lb = get_merged_leaderboard()
     if not ev:
         st.warning("缺少 public_eval.npz，请先运行 scripts/03_model_comparison.py")
         return
     y = ev["y"]
     w = ev["w"]
+
+    # 并入最终模型（物理权重 + CV-Bagging）的 public 概率
+    final_scan = L.load_final_scan()
+    final_eval = L.load_final_eval()
+    ev = {k: ev[k] for k in ev.files} if hasattr(ev, "files") else dict(ev)
+    if final_scan:
+        ev["final"] = final_scan["proba_public"]
     model_keys = [k for k in ev.keys() if k not in ("y", "w", "dummy")]
 
     tab1, tab2, tab3 = st.tabs(["ROC / PR 曲线", "混淆矩阵", "排行榜"])
@@ -399,9 +458,9 @@ def page_comparison():
             proba = ev[k]
             fpr, tpr, _ = roc_curve(y, proba)
             from sklearn.metrics import auc as auc_fn
-            fig_roc.add_trace(go.Scatter(x=fpr, y=tpr, name=f"{M.DISPLAY_NAME.get(k, k)} ({auc_fn(fpr, tpr):.3f})"))
+            fig_roc.add_trace(go.Scatter(x=fpr, y=tpr, name=f"{final_display_name(k)} ({auc_fn(fpr, tpr):.3f})"))
             pr_p, pr_r, _ = precision_recall_curve(y, proba)
-            fig_pr.add_trace(go.Scatter(x=pr_r, y=pr_p, name=M.DISPLAY_NAME.get(k, k)))
+            fig_pr.add_trace(go.Scatter(x=pr_r, y=pr_p, name=final_display_name(k)))
         fig_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], line=dict(dash="dash", color="gray"), name="随机"))
         fig_roc.update_layout(template="plotly_dark", height=480, title="ROC 曲线",
                               xaxis_title="FPR", yaxis_title="TPR")
@@ -411,17 +470,19 @@ def page_comparison():
         c2.plotly_chart(fig_pr, use_container_width=True)
 
     with tab2:
-        sel = st.selectbox("选择模型", model_keys,
-                           index=model_keys.index("xgboost") if "xgboost" in model_keys else 0,
-                           format_func=lambda k: M.DISPLAY_NAME.get(k, k))
-        thr = st.slider("决策阈值", 0.10, 0.99, 0.84, 0.01, key="cm_thr")
+        default_idx = model_keys.index("final") if "final" in model_keys else (
+            model_keys.index("xgboost") if "xgboost" in model_keys else 0)
+        sel = st.selectbox("选择模型", model_keys, index=default_idx, format_func=final_display_name)
+        # 默认阈值随所选模型而定：最终模型 0.95（AMS 最优），基础模型 0.84
+        default_thr = round(float(final_eval.get("best_thr", 0.95)), 2) if sel == "final" else 0.84
+        thr = st.slider("决策阈值", 0.10, 0.99, default_thr, 0.01)
         yp = (ev[sel] >= thr).astype(int)
         cm = confusion_matrix(y, yp)
         labels = ["Background", "Signal"]
         fig = go.Figure(go.Heatmap(z=cm, x=labels, y=labels, colorscale="Blues",
                                    text=cm, texttemplate="%{text:,}", showscale=True))
         fig.update_layout(template="plotly_dark", height=460,
-                          title=f"{M.DISPLAY_NAME.get(sel, sel)} 混淆矩阵 (阈值={thr:.2f})",
+                          title=f"{final_display_name(sel)} 混淆矩阵 (阈值={thr:.2f})",
                           xaxis_title="预测标签", yaxis_title="真实标签")
         st.plotly_chart(fig, use_container_width=True)
 
@@ -445,11 +506,11 @@ def main():
     st.sidebar.markdown("基于机器学习的希格斯信号识别系统")
     page = st.sidebar.radio(
         "导航",
-        ["1 · 项目介绍", "2 · Event Display", "3 · 实时预测",
+        ["1 · 项目介绍", "2 · 碰撞事件可视化", "3 · 实时预测",
          "4 · SHAP 解释", "5 · AMS 实验室", "6 · 模型比较"],
     )
     st.sidebar.markdown("---")
-    st.sidebar.info("主模型：XGBoost\n\nprivate AMS ≈ 3.60 | AUC ≈ 0.913")
+    st.sidebar.info("模型：物理权重 + CV-Bagging\n\nprivate AMS ≈ 3.69")
 
     if page.startswith("1"):
         page_intro()
@@ -459,13 +520,20 @@ def main():
         page_comparison()
     else:
         pub = L.load_public_df()
-        model = L.load_model()
         if page.startswith("2"):
             page_event_display(pub)
-        elif page.startswith("3"):
-            page_prediction(pub, model)
+            return
+        # 页面 3 / 4 使用最终模型集成；若产物缺失则回退到调优 XGBoost
+        final_models = L.load_final_models()
+        final_meta = L.load_final_meta()
+        if not final_models:
+            st.warning("未找到最终集成模型，回退至调优 XGBoost。请运行 scripts/09_ams_boost.py 生成最终模型。")
+            final_models = [L.load_model()]
+            final_meta = {"best_threshold": L.load_json("ams_optimization.json").get("public_best_threshold", 0.5)}
+        if page.startswith("3"):
+            page_prediction(pub, final_models, final_meta)
         elif page.startswith("4"):
-            page_shap(pub, model)
+            page_shap(pub, final_models)
 
 
 if __name__ == "__main__":
