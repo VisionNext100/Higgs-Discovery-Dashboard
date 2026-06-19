@@ -81,4 +81,4 @@ streamlit run app/dashboard.py
 2\. AMS 权重：使用官方 `KaggleWeight`，即每个集合分别归一化。在子集上评估时按 `N_full / N_subset` 重新缩放（`src/metrics.rescale_weights`）。  
 3\. 缺失值：-999 是占位符；树模型保留（XGBoost `missing=-999`），线性模型中位数填充 + 指示列。  
 4\. SHAP 兼容性：因 shap 0.49 与 xgboost 3.x 的 `base_score` 解析不兼容，改用 XGBoost 原生 `pred_contribs` 计算精确 TreeSHAPs。  
-5\. 交互面板中只有“项目介绍”展示 private 集的最终成绩，其余交互功能一律建立在 public 集上。因为这些功能本质是反复查看、调参、选阈值，如果在 private 上反复拖阈值、比模型，相当于反复窥探测试集。
+5\. 交互面板中只有“项目介绍”展示 private 集的最终成绩，其余交互功能一律建立在 public 集上。因为这些功能本质是查看、调参、选阈值，如果在 private 上反复进行这些操作，相当于不断窥探测试集。
